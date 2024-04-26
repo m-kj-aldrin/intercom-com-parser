@@ -87,8 +87,8 @@ class Input {
   #gt;
 
   /**
-   * @param {number} cv
-   * @param {number} gt
+   * @param {Peripheral} cv
+   * @param {Peripheral} gt
    */
   constructor(cv, gt) {
     this.#cv = cv;
@@ -185,12 +185,14 @@ class Out {
   #destination;
 
   /**
-   *
-   * @param {Source} source
-   * @param {Peripheral} destination
+   * @param {{cv:{module:number,chain:number},gt:{module:number,chain:number}}} source
+   * @param {{pid:number,channel:number}} destination
    */
   constructor(source, destination) {
-    this.#source = new Source(source.module, source.chain);
+    this.#source = {
+      cv: new Source(source.cv.module, source.cv.chain),
+      gt: new Source(source.gt.module, source.gt.chain),
+    };
     this.#destination = new Peripheral(destination.pid, destination.channel);
   }
 
@@ -219,11 +221,6 @@ class Out {
   }
 }
 
-// // Example usage:
-// let parameters = [new Parameter(100), new Parameter(200)];
-// let module = new Module("LFO", parameters);
-// module.name = "VCO"; // This will trigger the setter and print the update message
-
 function parseModules(modulePart) {
   const modules = [];
   const basicModuleRegex = /^([a-zA-Z]+)(\d*)/;
@@ -247,6 +244,9 @@ function parseModules(modulePart) {
   return modules;
 }
 
+/**
+ * @param {RegExpMatchArray} match
+ */
 function parseInputSetting(match) {
   return match
     ? {
@@ -262,7 +262,10 @@ function parseChain(part) {
     cv: parseInputSetting(inputPart.match(/cv_?(\d*):?(\d*)/)),
     gt: parseInputSetting(inputPart.match(/gt_?(\d*):?(\d*)/)),
   };
-  const input = new Input(inputSettings.cv, inputSettings.gt);
+  const input = new Input(
+    new Peripheral(inputSettings.cv.ch, inputSettings.cv.pid),
+    new Peripheral(inputSettings.gt.ch, inputSettings.gt.pid)
+  );
   const modules = parseModules(modulePart);
 
   return new Chain(input, modules);
@@ -271,10 +274,11 @@ function parseChain(part) {
 function parseOutput(part) {
   const [, cvModule, cvChain, gtModule, gtChain, pid, channel] =
     part.split(":");
+
   return new Out(
     {
       cv: { module: parseInt(cvModule), chain: parseInt(cvChain) },
-      gate: { module: parseInt(gtModule), chain: parseInt(gtChain) },
+      gt: { module: parseInt(gtModule), chain: parseInt(gtChain) },
     },
     {
       pid: parseInt(pid),
